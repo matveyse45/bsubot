@@ -35,6 +35,7 @@ from aiogram.types import (
     Message,
     WebAppInfo,
 )
+from aiohttp import web
 from dotenv import load_dotenv
 
 logger = logging.getLogger("ponyal_kod")
@@ -290,6 +291,29 @@ async def setup_bot(bot: Bot, settings: Settings) -> None:
         )
 
 
+async def start_health_server() -> web.AppRunner | None:
+    """Мини-сервер для Render Web Service: он требует открытый порт (PORT).
+
+    Если переменной PORT нет (локальный запуск или Background Worker),
+    сервер не запускается.
+    """
+    port = os.getenv("PORT")
+    if not port:
+        return None
+
+    async def health(_: web.Request) -> web.Response:
+        return web.Response(text="OK")
+
+    app = web.Application()
+    app.router.add_get("/", health)
+    app.router.add_get("/health", health)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, "0.0.0.0", int(port)).start()
+    logger.info("Health-сервер запущен на порту %s", port)
+    return runner
+
+
 async def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -306,14 +330,19 @@ async def main() -> None:
     dp.include_router(router)
     dp.errors.register(on_error)
 
+    health_runner = await start_health_server()
     await setup_bot(bot, settings)
     await bot.delete_webhook()  # на случай, если раньше был webhook
     logger.info("Бот запущен")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        if health_runner is not None:
+            await health_runner.cleanup()
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+    except KeyboardInterrupt:
         pass
