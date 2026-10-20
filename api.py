@@ -61,7 +61,7 @@ async def _read(request: web.Request) -> tuple[dict, dict]:
     user = verify_init_data(str(body.get("initData", "")), request.app["bot_token"])
     if not user:
         raise ApiError(401, "Открой приложение внутри Telegram.")
-    users.touch(user["id"], user.get("username"), user.get("first_name"))
+    await users.touch(user["id"], user.get("username"), user.get("first_name"))
     return body, user
 
 
