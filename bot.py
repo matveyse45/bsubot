@@ -28,6 +28,7 @@ from aiogram.types import (  # noqa: E402
 )
 
 import ai  # noqa: E402
+import users  # noqa: E402
 from api import create_app  # noqa: E402
 from payments import DONATE_AMOUNTS, invoice_params  # noqa: E402
 
@@ -165,6 +166,23 @@ async def on_paid(message: Message) -> None:
     await message.answer("Спасибо за поддержку! 💙")
 
 
+@router.message(Command("stats"))
+async def cmd_stats(message: Message) -> None:
+    """Статистика пользователей — только для владельца (ADMIN_ID в .env)."""
+    admin = os.getenv("ADMIN_ID", "").strip()
+    if message.from_user is None or not admin.isdigit() or message.from_user.id != int(admin):
+        await message.answer("Не знаю такой команды. Список команд: /help")
+        return
+    s = users.stats()
+    lines = [f"👥 Всего пользователей: {s['total']}", f"🟢 Активны за 24 часа: {s['active_24h']}"]
+    if s["recent"]:
+        lines.append("\nПоследние новые:")
+        for uid, username, name, first_seen in s["recent"]:
+            label = f"@{username}" if username else (name or "без имени")
+            lines.append(f"• {uid} — {label}")
+    await message.answer("\n".join(lines), parse_mode=None)
+
+
 @router.message(F.text)
 async def on_text(message: Message) -> None:
     """Обычный текст → ИИ-наставник."""
@@ -204,6 +222,14 @@ async def on_error(event: ErrorEvent) -> bool:
     return True
 
 
+async def track_users(handler, event: Message, data: dict):
+    """Записывает каждого, кто написал боту (включая /start)."""
+    u = event.from_user
+    if u is not None and not u.is_bot and event.chat.type == ChatType.PRIVATE:
+        users.touch(u.id, u.username, u.first_name)
+    return await handler(event, data)
+
+
 async def setup_bot(bot: Bot, settings: Settings) -> None:
     await bot.set_my_commands(BOT_COMMANDS)
     await bot.set_my_short_description(SHORT_DESCRIPTION)
@@ -220,6 +246,7 @@ async def main() -> None:
     bot = Bot(token=settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(settings=settings)
     dp.include_router(router)
+    dp.message.outer_middleware(track_users)
     dp.errors.register(on_error)
 
     # Mini App + API (Render требует открытый порт PORT)
