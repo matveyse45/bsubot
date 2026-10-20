@@ -14,6 +14,7 @@ from urllib.parse import parse_qsl
 from aiohttp import web
 
 import ai
+import users
 from ai.knowledge import load_curriculum
 from payments import DONATE_AMOUNTS, invoice_params
 
@@ -60,6 +61,7 @@ async def _read(request: web.Request) -> tuple[dict, dict]:
     user = verify_init_data(str(body.get("initData", "")), request.app["bot_token"])
     if not user:
         raise ApiError(401, "Открой приложение внутри Telegram.")
+    users.touch(user["id"], user.get("username"), user.get("first_name"))
     return body, user
 
 
