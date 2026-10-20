@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from aiohttp import web  # noqa: E402
+import httpx  # noqa: E402
 from aiogram import Bot, Dispatcher, F, Router  # noqa: E402
 from aiogram.client.default import DefaultBotProperties  # noqa: E402
 from aiogram.enums import ChatAction, ChatType, ParseMode  # noqa: E402
@@ -173,8 +174,17 @@ async def cmd_stats(message: Message) -> None:
     if message.from_user is None or not admin.isdigit() or message.from_user.id != int(admin):
         await message.answer("Не знаю такой команды. Список команд: /help")
         return
-    s = users.stats()
-    lines = [f"👥 Всего пользователей: {s['total']}", f"🟢 Активны за 24 часа: {s['active_24h']}"]
+    try:
+        s = await users.stats()
+    except Exception:  # noqa: BLE001
+        logger.exception("Не удалось получить статистику")
+        await message.answer("⚠️ Не удалось прочитать базу пользователей.")
+        return
+    lines = [
+        f"👥 Всего пользователей: {s['total']}",
+        f"🟢 Активны за 24 часа: {s['active_24h']}",
+        f"💾 Хранилище: {users.backend_name()}",
+    ]
     if s["recent"]:
         lines.append("\nПоследние новые:")
         for uid, username, name, first_seen in s["recent"]:
@@ -226,8 +236,20 @@ async def track_users(handler, event: Message, data: dict):
     """Записывает каждого, кто написал боту (включая /start)."""
     u = event.from_user
     if u is not None and not u.is_bot and event.chat.type == ChatType.PRIVATE:
-        users.touch(u.id, u.username, u.first_name)
+        await users.touch(u.id, u.username, u.first_name)
     return await handler(event, data)
+
+
+async def keep_alive(url: str) -> None:
+    """Раз в 10 минут обращается к собственному /health: Render Free усыпляет сервис
+    после 15 минут без входящих запросов. Дополняет внешний пингер (UptimeRobot)."""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        while True:
+            await asyncio.sleep(600)
+            try:
+                await client.get(f"{url}/health")
+            except httpx.HTTPError as e:
+                logger.warning("keep-alive не удался: %s", e)
 
 
 async def setup_bot(bot: Bot, settings: Settings) -> None:
@@ -259,9 +281,15 @@ async def main() -> None:
     await setup_bot(bot, settings)
     await bot.delete_webhook()
     logger.info("Бот запущен")
+    keep_task = None
+    ka_url = os.getenv("RENDER_EXTERNAL_URL") or settings.webapp_url
+    if ka_url and os.getenv("KEEP_ALIVE", "1") != "0":
+        keep_task = asyncio.create_task(keep_alive(ka_url.rstrip("/")))
     try:
         await dp.start_polling(bot)
     finally:
+        if keep_task:
+            keep_task.cancel()
         await runner.cleanup()
 
 
