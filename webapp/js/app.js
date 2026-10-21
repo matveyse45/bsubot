@@ -8,7 +8,7 @@ const store = {
 };
 const alertMsg = (m) => (tg && tg.showAlert ? tg.showAlert(m) : alert(m));
 
-const NAV = [['home', '🏠', 'Главная'], ['mentor', '🤖', 'Наставник'], ['curriculum', '📚', 'Программа'], ['practice', '✍️', 'Практика'], ['progress', '📈', 'Прогресс']];
+const NAV = [['home', 'home', 'Главная'], ['mentor', 'smart_toy', 'Наставник'], ['curriculum', 'menu_book', 'Программа'], ['practice', 'code', 'Практика'], ['progress', 'equalizer', 'Прогресс']];
 const PARENT = { topic: 'curriculum', task: 'practice', quiz: 'practice', materials: 'home', support: 'home' };
 const MODES = {
   mentor: ['💬 Вопрос', 'Задай вопрос по информатике или программированию…'],
@@ -43,13 +43,24 @@ async function api(path, body) {
 }
 
 function md(t) {
-  return String(t).split('```').map((p, i) => i % 2
-    ? '<pre><code>' + esc(p.replace(/^[a-zA-Z+#]*\n/, '')) + '</code></pre>'
-    : esc(p).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>')).join('');
+  return String(t).split('```').map((p, i) => {
+    if (i % 2) {
+      const m = p.match(/^([a-zA-Z+#]*)\n/), lang = m ? m[1] : '', code = m ? p.slice(m[0].length) : p;
+      return `<div class="code"><div class="code-h"><span>${esc(lang || 'код')}</span><button data-act="copy"><span class="ms">content_copy</span>Копия</button></div><pre><code>${esc(code.replace(/\n$/, ''))}</code></pre></div>`;
+    }
+    return esc(p).replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+  }).join('');
 }
 
-const card = (v, ic, t, s) => `<button class="card" data-act="go" data-v="${v}"><div class="ic">${ic}</div><b>${t}</b><small>${s}</small></button>`;
+const card = (v, ic, t, s) => `<button class="card" data-act="go" data-v="${v}"><div class="ic"><span class="ms">${ic}</span></div><b>${t}</b><small>${s}</small></button>`;
 const sel = (key, opts) => `<select data-profile="${key}">${opts.map(([v, l]) => `<option value="${v}" ${String(S.profile[key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+
+const QUICK = {
+  mentor: ['Как работают циклы?', 'Что такое O(N)?', 'Массив и вектор: в чём разница?'],
+  review: ['Почему неверный ответ?', 'Где выход за границы?', 'Как упростить код?'],
+  check: ['Циклы', 'Массивы', 'Рекурсия'],
+};
+const hhmm = () => new Date().toTimeString().slice(0, 5);
 
 const VIEWS = {
   home() {
@@ -57,15 +68,17 @@ const VIEWS = {
     return `<section class="hero"><span class="badge">Бета-версия</span><h1>Привет${n ? ', ' + esc(n) : ''}! 👋</h1>
 <p>Учись понимать информатику и программирование, а не копировать ответы.</p>
 <button class="btn" data-act="start">🚀 ${S.progress.started ? 'Продолжить' : 'Начать'} обучение</button></section>
-<div class="grid">${card('mentor', '🤖', 'ИИ-наставник', 'Объяснит и подскажет')}${card('curriculum', '📚', 'Учебная программа', 'Темы по уровням')}${card('progress', '📈', 'Мой прогресс', 'Результаты')}${card('practice', '✍️', 'Практика', 'Задачи и тесты')}${card('materials', '📖', 'Материалы', 'Учебники и поиск')}${card('support', '⭐', 'Поддержать', 'Telegram Stars')}</div>
+<div class="grid">${card('mentor', 'smart_toy', 'ИИ-наставник', 'Объяснит и подскажет')}${card('curriculum', 'menu_book', 'Учебная программа', 'Темы по уровням')}${card('progress', 'equalizer', 'Мой прогресс', 'Результаты')}${card('practice', 'code', 'Практика', 'Задачи и тесты')}${card('materials', 'library_books', 'Материалы', 'Учебники и поиск')}${card('support', 'star', 'Поддержать', 'Telegram Stars')}</div>
 <p class="note">Экспериментальный проект для Осенней школы абитуриентов Института бизнеса БГУ. Проект в разработке и не является официальным продуктом БГУ.</p>`;
   },
   mentor() {
-    return `<h2>🤖 ИИ-наставник <span class="badge">Бета</span></h2>
-<div class="chips">${Object.entries(MODES).map(([k, v]) => `<button class="chip ${S.mode === k ? 'on' : ''}" data-act="mode" data-m="${k}">${v[0]}</button>`).join('')}<button class="chip" data-act="reset">🗑 Новый диалог</button></div>
+    const modes = [['mentor', 'chat_bubble', 'Вопрос'], ['review', 'bug_report', 'Разбор кода'], ['check', 'psychology', 'Проверь меня']];
+    return `<div class="mt-top"><div class="mt-title"><i class="dot"></i><h2>ИИ-наставник</h2><span class="badge">Бета</span></div><button class="pill" data-act="go" data-v="curriculum"><span class="ms">memory</span>${esc(S.profile.language)} • ${esc(S.profile.grade)}</button></div>
+<div class="modes">${modes.map(([k, ic, l]) => `<button class="mode ${S.mode === k ? 'on' : ''}" data-act="mode" data-m="${k}"><span class="ms">${ic}</span>${l}</button>`).join('')}<button class="mode ghost" data-act="reset"><span class="ms">delete_sweep</span>Новый</button></div>
 <div id="msgs"></div>
-<div class="composer"><textarea id="inp" rows="2" placeholder="${esc(MODES[S.mode][1])}"></textarea><button class="send" data-act="send">➤</button></div>
-<p class="note">ИИ может ошибаться — проверяй важное. Он подсказывает, а не решает за тебя.</p>`;
+<div class="disc"><span class="ms">info</span><p>ИИ может ошибаться — проверяй важное. Наставник помогает дойти до сути самостоятельно, а не решает за тебя.</p></div>
+<div class="dock"><div class="dock-row"><button class="ibtn" data-act="codeins" title="Вставить код"><span class="ms">code</span></button><textarea id="inp" rows="1" placeholder="${esc(MODES[S.mode][1])}"></textarea><button class="sendb" data-act="send" title="Отправить"><span class="ms">arrow_upward</span></button></div>
+<div class="quick"><span>Подсказка:</span>${QUICK[S.mode].map((q) => `<button data-act="quick" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>`;
   },
   curriculum() {
     const list = C.topics.slice().sort((a, b) => a.level - b.level);
@@ -132,17 +145,22 @@ ${[50, 100, 250].map((a) => `<button class="btn alt" data-act="donate" data-a="$
 
 function renderChat() {
   const box = $('#msgs'); if (!box) return;
-  const hello = '<div class="msg">Привет! Я наставник «Понял.Код». Помогу разобраться с темой, ошибкой или задачей — подсказками, а не готовыми ответами.</div>';
-  box.innerHTML = hello + S.chat.map((m) => `<div class="msg ${m.r === 'u' ? 'u' : ''} ${m.err ? 'err' : ''}">${md(m.t)}${m.src && m.src.length ? `<br><small>Источники: ${esc(m.src.join(', '))}</small>` : ''}</div>`).join('') + (S.busy ? '<div class="msg muted">Наставник думает…</div>' : '');
+  const ai = (inner, t, err) => `<div class="m a"><div class="av"><span class="ms">smart_toy</span></div><div class="mb"><div class="mh"><b>Наставник</b><small>${t || ''}</small></div><div class="bub ${err ? 'err' : ''}">${inner}</div></div></div>`;
+  const hello = ai('Привет! Я твой ИИ-наставник по информатике. Я не пишу код за тебя, но помогу найти ошибку, объясню принцип или задам наводящий вопрос. О чём думаешь сейчас?');
+  const msgs = S.chat.map((m) => m.r === 'u'
+    ? `<div class="m u"><div class="mb"><div class="mh"><small>${m.ts || ''}</small><b>Ты</b></div><div class="bub">${md(m.t)}</div></div><div class="av"><span class="ms">person</span></div></div>`
+    : ai(md(m.t) + (m.src && m.src.length ? `<div class="src"><span class="ms">menu_book</span><span>Источники: ${esc(m.src.join(', '))}</span></div>` : ''), m.ts, m.err)).join('');
+  const busy = S.busy ? '<div class="think"><div class="av sm"><span class="ms">bolt</span></div><div class="tp"><b>Наставник думает</b><i></i><i></i><i></i></div></div>' : '';
+  box.innerHTML = hello + msgs + busy;
   window.scrollTo(0, document.body.scrollHeight);
 }
 
 async function send(p) {
-  S.chat.push({ r: 'u', t: p.display || p.text }); S.busy = true; renderChat();
+  S.chat.push({ r: 'u', t: p.display || p.text, ts: hhmm() }); S.busy = true; renderChat();
   try {
     const j = await api('chat', { message: p.text, mode: p.mode || S.mode, profile: S.profile, taskId: p.taskId, hintLevel: p.hintLevel });
-    S.chat.push({ r: 'a', t: j.answer, src: j.sources });
-  } catch (e) { S.chat.push({ r: 'a', t: e.message, err: true }); }
+    S.chat.push({ r: 'a', t: j.answer, src: j.sources, ts: hhmm() });
+  } catch (e) { S.chat.push({ r: 'a', t: e.message, err: true, ts: hhmm() }); }
   S.busy = false; renderChat();
 }
 function askMentor(p) { S.pending = p; go('mentor'); }
@@ -158,9 +176,11 @@ async function loadMaterials(q) {
 
 function go(view, arg) { S.view = view; S.arg = arg == null ? null : arg; render(); window.scrollTo(0, 0); }
 function render() {
+  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  $('#top').innerHTML = `<div class="logo"><span class="ms lime">terminal</span><span>Понял<em>.Код</em></span><span class="badge">Бета</span></div>${u && u.photo_url ? `<img class="ava" src="${esc(u.photo_url)}" alt="">` : '<div class="ava"><span class="ms">person</span></div>'}`;
   $('#app').innerHTML = VIEWS[S.view](S.arg);
   const cur = PARENT[S.view] === 'home' ? 'home' : (PARENT[S.view] || S.view);
-  $('#nav').innerHTML = NAV.map(([v, i, l]) => `<button class="${v === cur ? 'on' : ''}" data-act="go" data-v="${v}"><span>${i}</span>${l}</button>`).join('');
+  $('#nav').innerHTML = '<div class="pillnav">' + NAV.map(([v, i, l]) => `<button class="${v === cur ? 'on' : ''}" data-act="go" data-v="${v}"><span class="ms">${i}</span><span>${l}</span></button>`).join('') + '</div>';
   if (tg && tg.BackButton) { PARENT[S.view] ? tg.BackButton.show() : tg.BackButton.hide(); }
   if (S.view === 'mentor') { renderChat(); if (S.pending) { const p = S.pending; S.pending = null; send(p); } }
   if (S.view === 'materials') loadMaterials('');
@@ -210,3 +230,19 @@ if (tg && tg.BackButton) tg.BackButton.onClick(() => { const p = PARENT[S.view];
   catch (e) { $('#app').innerHTML = '<p class="err">Не удалось загрузить программу. Обнови страницу.</p>'; return; }
   render();
 })();
+
+// --- дополнения дизайна: копирование кода, вставка кода, быстрые подсказки ---
+const autosize = (el) => { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; };
+Object.assign(ACTS, {
+  send() { const i = $('#inp'); const text = i.value.trim(); if (!text || S.busy) return; i.value = ''; i.style.height = 'auto'; send({ text }); },
+  quick(d) { const i = $('#inp'); i.value = d.q; autosize(i); i.focus(); },
+  codeins() { const i = $('#inp'); const pos = i.selectionStart == null ? i.value.length : i.selectionStart; i.value = i.value.slice(0, pos) + '\n```\n\n```\n' + i.value.slice(pos); autosize(i); i.focus(); i.selectionStart = i.selectionEnd = pos + 5; },
+  copy(d, el) {
+    const code = el.closest('.code').querySelector('code').textContent;
+    const done = () => { const t = el.lastChild; const old = t.textContent; t.textContent = 'Готово'; setTimeout(() => { t.textContent = old; }, 1500); };
+    try { navigator.clipboard.writeText(code).then(done, () => alertMsg('Не удалось скопировать.')); } catch (e) { alertMsg('Не удалось скопировать.'); }
+  },
+});
+document.addEventListener('input', (e) => { if (e.target.id === 'inp') autosize(e.target); });
+if (tg) { try { tg.setHeaderColor('#111412'); tg.setBackgroundColor('#111412'); } catch (e) {} }
+if (document.fonts && document.fonts.load) document.fonts.load('20px "Material Symbols Outlined"').then((f) => { if (f.length) document.documentElement.classList.add('icons'); }).catch(() => {});
