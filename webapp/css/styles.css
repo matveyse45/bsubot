@@ -64,3 +64,27 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:0 16px env(safe-ar
 .pillnav{pointer-events:auto;max-width:440px;margin:0 auto 8px;height:64px;display:flex;align-items:center;justify-content:space-around;background:rgba(29,32,30,.95);backdrop-filter:blur(16px);border-radius:99px;padding:0 4px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
 .pillnav button{border:0;background:none;color:var(--tv);min-width:52px;height:44px;border-radius:99px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:600 10px/12px Inter,sans-serif}
 .pillnav button .ms{font-size:22px}.pillnav button.on{color:var(--lime);box-shadow:0 4px 16px rgba(203,242,45,.25)}
+/* чат на весь экран: сообщения скроллятся, поле ввода закреплено */
+body.chat{height:var(--tg-viewport-height,100dvh);overflow:hidden;padding:0 12px;display:flex;flex-direction:column}
+body.chat #top,body.chat .foot{display:none}
+body.chat #app{flex:1;min-height:0;display:flex;flex-direction:column}
+body.chat nav{position:static;flex-shrink:0;padding:0 0 env(safe-area-inset-bottom)}
+body.chat.kb nav,body.chat.kb .seg,body.chat.kb .banner,body.chat.kb .micro{display:none}
+.chat-root{display:flex;flex-direction:column;flex:1;min-height:0;gap:8px;padding-top:8px}
+#msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 0;scrollbar-width:none}#msgs::-webkit-scrollbar{display:none}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:8px}.ch-l{display:flex;align-items:center;gap:10px;min-width:0}
+.ch-t{display:flex;align-items:center;gap:6px;font-size:16px}.ch small{font-size:11px;color:var(--tv)}.ch-r{display:flex;align-items:center;gap:6px}
+.round{width:32px;height:32px;border-radius:50%;border:0;background:var(--s2);color:var(--tv);display:flex;align-items:center;justify-content:center}.round .ms{font-size:17px}
+.pill{position:relative}.pill select{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;border:0;padding:0}
+.seg{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--s1)}
+.seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:8px;padding:7px 4px;background:none;color:var(--tv);font:500 12px Inter,sans-serif}.seg button .ms{font-size:15px}
+.seg button.on{background:var(--lime);color:var(--onlime);font-weight:700;box-shadow:0 2px 8px rgba(203,242,45,.25)}
+.banner{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--s2);border:1px solid rgba(69,73,52,.3);color:var(--tv);font-size:11px;line-height:15px}.banner .ms{font-size:16px;color:var(--lime);flex-shrink:0}
+.follow{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 8px 40px}.follow button{border:1px solid rgba(69,73,52,.5);background:var(--s3);color:var(--tx);border-radius:99px;padding:5px 10px;font:500 11px Inter,sans-serif}
+.dock{position:static;margin:0 0 6px;padding:8px;background:rgba(40,43,40,.95);border-radius:16px;box-shadow:0 12px 36px rgba(0,0,0,.55)}
+.dock .tools{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:0 2px 8px;scrollbar-width:none}.tools::-webkit-scrollbar{display:none}
+.tool{flex-shrink:0;border:0;border-radius:6px;background:var(--s2);color:var(--tv);padding:4px 9px;font:500 12px Inter,sans-serif;display:flex;align-items:center;gap:4px}
+.tool.code{color:var(--lime);font-family:"JetBrains Mono",monospace;font-size:11px}.tool .ms{font-size:13px}.tools i{width:1px;height:14px;background:var(--ov);flex-shrink:0}.tool.x{margin-left:auto;background:none}
+.dock textarea{height:52px;min-height:52px;max-height:140px;font-size:16px;line-height:22px;padding:6px 8px}
+.dock-row{align-items:flex-end}.sendb{width:44px;height:44px}
+.micro{text-align:center;font-size:10px;color:var(--tv);opacity:.6;margin:6px 0 0}
