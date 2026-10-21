@@ -73,12 +73,22 @@ const VIEWS = {
   },
   mentor() {
     const modes = [['mentor', 'chat_bubble', 'Вопрос'], ['review', 'bug_report', 'Разбор кода'], ['check', 'psychology', 'Проверь меня']];
-    return `<div class="mt-top"><div class="mt-title"><i class="dot"></i><h2>ИИ-наставник</h2><span class="badge">Бета</span></div><button class="pill" data-act="go" data-v="curriculum"><span class="ms">memory</span>${esc(S.profile.language)} • ${esc(S.profile.grade)}</button></div>
-<div class="modes">${modes.map(([k, ic, l]) => `<button class="mode ${S.mode === k ? 'on' : ''}" data-act="mode" data-m="${k}"><span class="ms">${ic}</span>${l}</button>`).join('')}<button class="mode ghost" data-act="reset"><span class="ms">delete_sweep</span>Новый</button></div>
+    const banners = {
+      mentor: '<b>Режим наводящих подсказок:</b> наставник не даёт готовых решений, а помогает думать логически и находить ошибки.',
+      review: '<b>Разбор кода:</b> вставь свой код (кнопка «&lt;/&gt; Код») и опиши, что не работает — наставник найдёт место ошибки и подскажет, как исправить.',
+      check: '<b>Проверка понимания:</b> напиши тему — наставник задаст три вопроса, а потом оценит твои ответы.',
+    };
+    return `<div class="chat-root">
+<div class="ch"><div class="ch-l"><i class="dot"></i><div><div class="ch-t"><b>ИИ-наставник</b><span class="badge">Бета</span></div><small>Готов разобрать код и подсказать</small></div></div>
+<div class="ch-r"><label class="pill"><span class="ms">terminal</span><span>${esc(S.profile.language)} • ${esc(S.profile.grade)}</span><span class="ms">expand_more</span><select data-profile="language" aria-label="Язык программирования">${LANGS.map((l) => `<option ${l === S.profile.language ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+<button class="round" data-act="reset" title="Новый диалог"><span class="ms">delete_sweep</span></button></div></div>
+<div class="seg">${modes.map(([k, ic, l]) => `<button class="${S.mode === k ? 'on' : ''}" data-act="mode" data-m="${k}"><span class="ms">${ic}</span>${l}</button>`).join('')}</div>
+<div class="banner"><span class="ms">lightbulb</span><span>${banners[S.mode]}</span></div>
 <div id="msgs"></div>
-<div class="disc"><span class="ms">info</span><p>ИИ может ошибаться — проверяй важное. Наставник помогает дойти до сути самостоятельно, а не решает за тебя.</p></div>
-<div class="dock"><div class="dock-row"><button class="ibtn" data-act="codeins" title="Вставить код"><span class="ms">code</span></button><textarea id="inp" rows="1" placeholder="${esc(MODES[S.mode][1])}"></textarea><button class="sendb" data-act="send" title="Отправить"><span class="ms">arrow_upward</span></button></div>
-<div class="quick"><span>Подсказка:</span>${QUICK[S.mode].map((q) => `<button data-act="quick" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>`;
+<div class="dock">
+<div class="tools"><button class="tool code" data-act="codeins"><span class="ms">code</span>&lt;/&gt; Код</button><i></i>${['Циклы', 'Массивы', 'Ввод и вывод'].map((t) => `<button class="tool" data-act="quick" data-q="${esc('Объясни тему: ' + t)}">${esc(t)}</button>`).join('')}<button class="tool x" data-act="clearinp" title="Очистить поле"><span class="ms">close</span></button></div>
+<div class="dock-row"><textarea id="inp" rows="2" placeholder="${esc(MODES[S.mode][1])}"></textarea><button class="sendb" data-act="send" title="Отправить"><span class="ms">arrow_upward</span></button></div>
+<p class="micro">ИИ подсказывает логику, а не пишет код за тебя • Проверяй факты</p></div></div>`;
   },
   curriculum() {
     const list = C.topics.slice().sort((a, b) => a.level - b.level);
@@ -150,9 +160,12 @@ function renderChat() {
   const msgs = S.chat.map((m) => m.r === 'u'
     ? `<div class="m u"><div class="mb"><div class="mh"><small>${m.ts || ''}</small><b>Ты</b></div><div class="bub">${md(m.t)}</div></div><div class="av"><span class="ms">person</span></div></div>`
     : ai(md(m.t) + (m.src && m.src.length ? `<div class="src"><span class="ms">menu_book</span><span>Источники: ${esc(m.src.join(', '))}</span></div>` : ''), m.ts, m.err)).join('');
-  const busy = S.busy ? '<div class="think"><div class="av sm"><span class="ms">bolt</span></div><div class="tp"><b>Наставник думает</b><i></i><i></i><i></i></div></div>' : '';
-  box.innerHTML = hello + msgs + busy;
-  window.scrollTo(0, document.body.scrollHeight);
+  const busy = S.busy ? '<div class="think"><div class="av sm"><span class="ms">bolt</span></div><div class="tp"><b>Наставник формулирует подсказку…</b><i></i><i></i><i></i></div></div>' : '';
+  const last = S.chat[S.chat.length - 1];
+  const follow = (!S.busy && last && last.r === 'a' && !last.err)
+    ? '<div class="follow">' + [['💡 Дай наводку', 'Дай наводку, но без готового решения'], ['▶️ Похожий пример', 'Покажи похожий пример, но не решай мою задачу'], ['📝 Объясни иначе', 'Объясни то же самое другими словами']].map(([l, q]) => `<button data-act="follow" data-q="${esc(q)}">${l}</button>`).join('') + '</div>' : '';
+  box.innerHTML = hello + msgs + follow + busy;
+  box.scrollTop = box.scrollHeight;
 }
 
 async function send(p) {
@@ -179,6 +192,9 @@ function render() {
   const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
   $('#top').innerHTML = `<div class="logo"><span class="ms lime">terminal</span><span>Понял<em>.Код</em></span><span class="badge">Бета</span></div>${u && u.photo_url ? `<img class="ava" src="${esc(u.photo_url)}" alt="">` : '<div class="ava"><span class="ms">person</span></div>'}`;
   $('#app').innerHTML = VIEWS[S.view](S.arg);
+  document.body.classList.toggle('chat', S.view === 'mentor');
+  if (S.view !== 'mentor') document.body.classList.remove('kb');
+  else { const i = $('#inp'); if (i && S.draft) { i.value = S.draft; autosize(i); } }
   const cur = PARENT[S.view] === 'home' ? 'home' : (PARENT[S.view] || S.view);
   $('#nav').innerHTML = '<div class="pillnav">' + NAV.map(([v, i, l]) => `<button class="${v === cur ? 'on' : ''}" data-act="go" data-v="${v}"><span class="ms">${i}</span><span>${l}</span></button>`).join('') + '</div>';
   if (tg && tg.BackButton) { PARENT[S.view] ? tg.BackButton.show() : tg.BackButton.hide(); }
@@ -232,9 +248,11 @@ if (tg && tg.BackButton) tg.BackButton.onClick(() => { const p = PARENT[S.view];
 })();
 
 // --- дополнения дизайна: копирование кода, вставка кода, быстрые подсказки ---
-const autosize = (el) => { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; };
+const autosize = (el) => { S.draft = el.value; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; };
 Object.assign(ACTS, {
-  send() { const i = $('#inp'); const text = i.value.trim(); if (!text || S.busy) return; i.value = ''; i.style.height = 'auto'; send({ text }); },
+  send() { const i = $('#inp'); const text = i.value.trim(); if (!text || S.busy) return; i.value = ''; S.draft = ''; i.style.height = 'auto'; send({ text }); },
+  follow(d) { if (!S.busy) send({ text: d.q }); },
+  clearinp() { const i = $('#inp'); i.value = ''; autosize(i); i.focus(); },
   quick(d) { const i = $('#inp'); i.value = d.q; autosize(i); i.focus(); },
   codeins() { const i = $('#inp'); const pos = i.selectionStart == null ? i.value.length : i.selectionStart; i.value = i.value.slice(0, pos) + '\n```\n\n```\n' + i.value.slice(pos); autosize(i); i.focus(); i.selectionStart = i.selectionEnd = pos + 5; },
   copy(d, el) {
@@ -246,3 +264,8 @@ Object.assign(ACTS, {
 document.addEventListener('input', (e) => { if (e.target.id === 'inp') autosize(e.target); });
 if (tg) { try { tg.setHeaderColor('#111412'); tg.setBackgroundColor('#111412'); } catch (e) {} }
 if (document.fonts && document.fonts.load) document.fonts.load('20px "Material Symbols Outlined"').then((f) => { if (f.length) document.documentElement.classList.add('icons'); }).catch(() => {});
+
+// --- удобство чата: клавиатура не должна перекрывать поле ввода ---
+document.addEventListener('focusin', (e) => { if (e.target.id === 'inp') document.body.classList.add('kb'); });
+document.addEventListener('focusout', (e) => { if (e.target.id === 'inp') setTimeout(() => { if (document.activeElement !== e.target) document.body.classList.remove('kb'); }, 150); });
+document.addEventListener('mousedown', (e) => { if (e.target.closest('.dock button')) e.preventDefault(); }); // кнопки не сбрасывают фокус поля
