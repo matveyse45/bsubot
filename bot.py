@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from aiohttp import web  # noqa: E402
+import httpx  # noqa: E402
 from aiogram import Bot, Dispatcher, F, Router  # noqa: E402
 from aiogram.client.default import DefaultBotProperties  # noqa: E402
 from aiogram.enums import ChatAction, ChatType, ParseMode  # noqa: E402
@@ -239,6 +240,18 @@ async def track_users(handler, event: Message, data: dict):
     return await handler(event, data)
 
 
+async def keep_alive(url: str) -> None:
+    """Раз в 10 минут обращается к собственному /health: Render Free усыпляет сервис
+    после 15 минут без входящих запросов. Дополняет внешний пингер (UptimeRobot)."""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        while True:
+            await asyncio.sleep(600)
+            try:
+                await client.get(f"{url}/health")
+            except httpx.HTTPError as e:
+                logger.warning("keep-alive не удался: %s", e)
+
+
 async def setup_bot(bot: Bot, settings: Settings) -> None:
     await bot.set_my_commands(BOT_COMMANDS)
     await bot.set_my_short_description(SHORT_DESCRIPTION)
@@ -268,9 +281,15 @@ async def main() -> None:
     await setup_bot(bot, settings)
     await bot.delete_webhook()
     logger.info("Бот запущен")
+    keep_task = None
+    ka_url = os.getenv("RENDER_EXTERNAL_URL") or settings.webapp_url
+    if ka_url and os.getenv("KEEP_ALIVE", "1") != "0":
+        keep_task = asyncio.create_task(keep_alive(ka_url.rstrip("/")))
     try:
         await dp.start_polling(bot)
     finally:
+        if keep_task:
+            keep_task.cancel()
         await runner.cleanup()
 
 
